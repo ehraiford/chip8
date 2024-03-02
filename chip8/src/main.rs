@@ -1,6 +1,4 @@
-use std::ops;
-
-use rand::{random, Rng};
+use rand::Rng;
 
 fn main() {
     let mut emulator_instance = Chip8Computer::new();
@@ -11,6 +9,7 @@ struct Chip8Computer {
     cpu: Cpu,
     memory: Memory,
     frame_buffer: FrameBuffer,
+    input: Input,
 }
 
 impl Chip8Computer {
@@ -19,6 +18,7 @@ impl Chip8Computer {
             cpu: Cpu::new(),
             memory: Memory::new(),
             frame_buffer: FrameBuffer::new(),
+            input: Input::new(),
         }
     }
 
@@ -253,15 +253,65 @@ impl Chip8Computer {
     ///Reads n bytes from memory starting at the address in Register I and displays them starting at (Vx, Vy).
     ///Sprites are XORed onto the screen with existing pixels. VF is set to whether any pixels are erased because of this.
     ///0xyn
-    fn drw(&mut self, operation: &Operation) {
+    fn draw(&mut self, operation: &Operation) {
         let num_bytes = operation.get_small_immediate();
         let starting_address = self.cpu.index_register;
         let draw_bytes = self.memory.read_bytes(starting_address, num_bytes.into());
         let start_x = self.cpu.data_registers[operation.get_register() as usize];
         let start_y = self.cpu.data_registers[operation.get_second_register() as usize];
+
         let result = self.frame_buffer.draw_sprite(start_x, start_y, draw_bytes);
         self.cpu.data_registers[0x0F] = result.into();
     }
+    /// *SKP*:
+    ///Skips the next instruction if the key corresponding to the value in Vx is pressed.
+    ///Ex9E
+    fn skip_pressed(&mut self, operation: &Operation) {
+        let key_value = self.cpu.data_registers[operation.get_register() as usize];
+        if self.input.check_pressed(key_value) { 
+            self.cpu.program_counter += 2;
+        }
+    }
+    /// *SKNP*:
+    ///Skips the next instruction if the key corresponding to the value in Vx is not pressed.
+    ///ExA1
+    fn skip_not_pressed(&mut self, operation: &Operation) {
+        let key_value = self.cpu.data_registers[operation.get_register() as usize];
+        if !self.input.check_pressed(key_value) { 
+            self.cpu.program_counter += 2;
+        }
+    }
+    /// *LD*:
+    ///Loads the value from the delay timer and stores it in Vx
+    ///0xFx07 Vx = Delay Timer.
+    fn load_delay(&mut self, operation: &Operation) {
+        self.cpu.data_registers[operation.get_register() as usize] = self.cpu.delay_timer;
+    }
+    /// *LD*:
+    ///Stores the value of the next keypress in Vx. Execution stops until then.
+    ///0xFx0A: Vx = Keypress.
+    fn load_keypress(&mut self, operation: &Operation) {
+        self.cpu.data_registers[operation.get_register() as usize] = self.input.receive_input();
+    }
+    /// *LD*:
+    ///Sets delay timer to value within specified register.
+    ///0xFx15: Delay Timer = Vx.
+    fn store_delay(&mut self, operation: &Operation) {
+        self.cpu.delay_timer = self.cpu.data_registers[operation.get_register() as usize];
+    }
+    /// *LD ST*:
+    ///Sets sound timer to value within specified register.
+    ///0xFx18: Sound Timer = Vx.
+    fn store_sound(&mut self, operation: &Operation) {
+        self.cpu.sound_timer = self.cpu.data_registers[operation.get_register() as usize];
+    }
+    /// *ADD I, Vx*:
+    ///Adds I with the value in Vx and stores it in I.
+    ///0xFx1E: I += Vx.
+    fn add_index(&mut self, operation: &Operation) {
+        self.cpu.index_register += self.cpu.data_registers[operation.get_register() as usize] as u16;
+    }
+    
 }
 struct Cpu {
     data_registers: [u8; 16],
@@ -314,31 +364,40 @@ impl Default for Cpu {
 }
 
 struct FrameBuffer {
-    buffer: [[u8; 4]; 8],
+    buffer: [u32; 64],
 }
 
 impl FrameBuffer {
     fn new() -> Self {
         FrameBuffer {
-            buffer: [[0; 4]; 8],
+            buffer: [0; 64],
         }
     }
 
-    fn get_frame_buffer(&self) -> [[u8; 4]; 8] {
+    fn get_frame_buffer(&self) -> [u32; 64] {
         self.buffer
     }
 
+    ///XORs the bytes onto screen starting at the the given coordinates.
+    ///Returns whether or not any bits are erased because of this.
     fn draw_sprite(&mut self, start_x: u8, start_y: u8, bytes: Vec<u8>) -> bool {
-        return false
-    }
 
-    fn set_bit(&mut self, x: u64, y: u32, turn_on: bool) {}
+        let mut xor_line = 0;
+        for (i, byte) in bytes.into_iter().enumerate() {
+            let byte_as_32 = (byte as u32) << 24;
+            let right_shift = start_x + (i as u8*8);
+            xor_line |= (byte_as_32 >> right_shift) % 32;
+        }
+
+        let result = (xor_line & self.buffer[start_y as usize]) == 0;
+        self.buffer[start_y as usize] ^= xor_line;
+        
+        result
+    }
 
     fn clear(&mut self) {
         for mut line in self.buffer {
-            for mut chunk in line {
-                chunk = 0;
-            }
+            line = 0;
         }
     }
 }
@@ -418,5 +477,23 @@ impl Operation {
 
     fn new(value: u16) -> Self {
         Operation { value }
+    }
+}
+
+struct Input {
+
+}
+
+impl Input {
+    pub fn new() -> Self {
+        return Input {
+            
+        }
+    } 
+    pub fn check_pressed(&self, key: u8) -> bool {
+        todo!()
+    }
+    pub fn receive_input(&self) -> u8 {
+        todo!()
     }
 }
