@@ -311,7 +311,45 @@ impl Chip8Computer {
     fn add_index(&mut self, operation: &Operation) {
         self.cpu.index_register += self.cpu.data_registers[operation.get_register() as usize] as u16;
     }
-    
+    /// *LD F, Vx*:
+    ///Stores the address of the sprite in Vx into I. 
+    ///Practically speaking, this just stores Vx * 5 into I
+    ///0xFx29: I = Vx * 5.
+    fn index_sprite(&mut self, operation: &Operation) {
+        self.cpu.index_register = self.cpu.data_registers[operation.get_register() as usize] as u16 * 5;
+    }
+    /// *LD B, Vx*:
+    ///Stores the BCD version of I Vx in memory at address I, I+1, & I+2.
+    ///0Fx33
+    fn store_bcd(&mut self, operation: &Operation) {
+        let value = self.cpu.data_registers[operation.get_register() as usize];
+        let hundreds = value / 100;
+        let tens = (value / 10) % 10;
+        let ones = value % 10;
+        
+        let address = self.cpu.index_register as usize;
+        self.memory.data[address] = hundreds;
+        self.memory.data[address + 1] = tens;
+        self.memory.data[address + 2] = ones;
+    }
+    /// *LD [I], Vx*:
+    ///Stores values in V0 -> Vx registers in consecutive memory locations starting at the address in I.
+    ///0xFx55
+    fn store_registers(&mut self, operation: &Operation) {
+        for i in 0..operation.get_register().into() {
+            let value = self.cpu.data_registers[i];
+            self.memory.data[self.cpu.index_register as usize + i] = value;
+        }
+    }
+    /// *LD Vx, [I]
+    ///Loads values into V0 -> Vx registers from consecutive memory locations starting at the address in I.
+    ///0xFx65
+    fn load_registers(&mut self, operation: &Operation) {
+        for i in 0..operation.get_register().into() {
+            let value = self.memory.data[self.cpu.index_register as usize + i];
+            self.cpu.data_registers[i] = value;
+        }
+    }
 }
 struct Cpu {
     data_registers: [u8; 16],
