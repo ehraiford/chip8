@@ -86,18 +86,52 @@ impl Chip8Computer {
             0xE => {
                 match operation.value & 0x00FF {
                     0x9E => {
-                        todo!()
+                        self.skip_pressed(operation);
                     },
                     0xA1 => {
-                        todo!()
+                        self.skip_not_pressed(operation);
+                    },
+                    _ => {
+                        panic!("Unsupported value!");
+                    }
+                }
+            },
+            0xF => {
+                match operation.value & 0x00FF {
+                    0x07 => {
+                        self.load_delay(operation);
+                    },
+                    0x0A => {
+                        self.load_keypress(operation);
+                    },
+                    0x15 => {
+                        self.store_delay(operation);
+                    },
+                    0x18 => {
+                        self.store_sound(operation);
+                    },
+                    0x1E => {
+                        self.add_index(operation);
+                    },
+                    0x29 => {
+                        self.index_sprite(operation);
+                    },
+                    0x33 => {
+                        self.store_bcd(operation);
+                    }
+                    0x55 => {
+                        self.store_registers(operation);
+                    },
+                    0x64 => {
+                        self.load_registers(operation);
                     }
                     _ => {
                         panic!("Unsupported value!");
                     }
                 }
-            }
+            },
             _ => {
-                panic!("This operation hasn't been added yet.");
+                panic!("Unsupported value!");
             }
         }
     }
