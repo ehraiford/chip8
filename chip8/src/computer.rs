@@ -55,14 +55,47 @@ impl Chip8Computer {
                 self.add_immediate(operation);
             }
             0x8 => match operation.value & 0x000F {
-                0x0 => {}
-                0x1 => {}
-
+                0x0 => {self.move_register(operation);},
+                0x1 => {self.or_register(operation);},
+                0x2 => {self.and_register(operation);},
+                0x3 => {self.xor_register(operation);},
+                0x4 => {self.add_register(operation);},
+                0x5 => {self.subtract_register(operation);},
+                0x6 => {self.shift_right(operation);},
+                0x7 => {self.subtract_register_not(operation);},
+                0x8 => {self.shift_left(operation);},
                 _ => {
-                    panic!("This isn't implemented.")
+                    panic!("Unsupported value!");
                 }
             },
-
+            0x9 => {
+                self.skip_not_equal_register(operation);
+            },
+            0xA => {
+                self.load_address(operation);
+            },
+            0xB => {
+                self.load_address(operation);
+            },
+            0xC => {
+                self.random(operation);
+            },
+            0xD => {
+                self.draw(operation);
+            },
+            0xE => {
+                match operation.value & 0x00FF {
+                    0x9E => {
+                        todo!()
+                    },
+                    0xA1 => {
+                        todo!()
+                    }
+                    _ => {
+                        panic!("Unsupported value!");
+                    }
+                }
+            }
             _ => {
                 panic!("This operation hasn't been added yet.");
             }
@@ -250,7 +283,7 @@ impl Chip8Computer {
     /// *DRW*:
     ///Reads n bytes from memory starting at the address in Register I and displays them starting at (Vx, Vy).
     ///Sprites are XORed onto the screen with existing pixels. VF is set to whether any pixels are erased because of this.
-    ///0xyn
+    ///0xDxyn
     pub fn draw(&mut self, operation: &Operation) {
         let num_bytes = operation.get_small_immediate();
         let starting_address = self.cpu.index_register;
