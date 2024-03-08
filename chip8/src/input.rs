@@ -1,13 +1,9 @@
-pub struct Input {
-
-}
+pub struct Input {}
 
 impl Input {
     pub fn new() -> Self {
-        return Input {
-            
-        }
-    } 
+        return Input {};
+    }
     pub fn check_pressed(&self, key: u8) -> bool {
         todo!()
     }

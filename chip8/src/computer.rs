@@ -1,13 +1,14 @@
+use crate::cpu::Cpu;
+use crate::frame_buffer::FrameBuffer;
 use crate::input::Input;
 use crate::memory::Memory;
 use crate::Operation;
-use crate::cpu::Cpu;
-use crate::frame_buffer::FrameBuffer;
 pub struct Chip8Computer {
     pub cpu: Cpu,
     pub memory: Memory,
     pub frame_buffer: FrameBuffer,
     pub input: Input,
+    incr_pc_flag: bool,
 }
 
 impl Chip8Computer {
@@ -17,6 +18,22 @@ impl Chip8Computer {
             memory: Memory::new(),
             frame_buffer: FrameBuffer::new(),
             input: Input::new(),
+            incr_pc_flag: true,
+        }
+    }
+
+    pub fn tick(&mut self) {
+        let operation = self.memory.read_instruction(self.cpu.program_counter);
+        println!("Running instruction: 0x{:04x}.", operation);
+        self.map_operation_to_function(&operation.into());
+
+        self.cpu.sound_timer = self.cpu.sound_timer.saturating_sub(0);
+        self.cpu.delay_timer = self.cpu.delay_timer.saturating_sub(0);
+
+        if self.incr_pc_flag {
+            self.cpu.program_counter += 2;
+        } else {
+            self.incr_pc_flag = true;
         }
     }
 
@@ -55,82 +72,104 @@ impl Chip8Computer {
                 self.add_immediate(operation);
             }
             0x8 => match operation.value & 0x000F {
-                0x0 => {self.move_register(operation);},
-                0x1 => {self.or_register(operation);},
-                0x2 => {self.and_register(operation);},
-                0x3 => {self.xor_register(operation);},
-                0x4 => {self.add_register(operation);},
-                0x5 => {self.subtract_register(operation);},
-                0x6 => {self.shift_right(operation);},
-                0x7 => {self.subtract_register_not(operation);},
-                0x8 => {self.shift_left(operation);},
+                0x0 => {
+                    self.move_register(operation);
+                }
+                0x1 => {
+                    self.or_register(operation);
+                }
+                0x2 => {
+                    self.and_register(operation);
+                }
+                0x3 => {
+                    self.xor_register(operation);
+                }
+                0x4 => {
+                    self.add_register(operation);
+                }
+                0x5 => {
+                    self.subtract_register(operation);
+                }
+                0x6 => {
+                    self.shift_right(operation);
+                }
+                0x7 => {
+                    self.subtract_register_not(operation);
+                }
+                0x8 => {
+                    self.shift_left(operation);
+                }
                 _ => {
+                    println!("Instruction failed: 0x{:0x}", operation.value);
+                    self.memory.print_rom();
                     panic!("Unsupported value!");
                 }
             },
             0x9 => {
                 self.skip_not_equal_register(operation);
-            },
+            }
             0xA => {
                 self.load_address(operation);
-            },
+            }
             0xB => {
-                self.load_address(operation);
-            },
+                self.jump_register(operation);
+            }
             0xC => {
                 self.random(operation);
-            },
+            }
             0xD => {
                 self.draw(operation);
-            },
-            0xE => {
-                match operation.value & 0x00FF {
-                    0x9E => {
-                        self.skip_pressed(operation);
-                    },
-                    0xA1 => {
-                        self.skip_not_pressed(operation);
-                    },
-                    _ => {
-                        panic!("Unsupported value!");
-                    }
+            }
+            0xE => match operation.value & 0x00FF {
+                0x9E => {
+                    self.skip_pressed(operation);
+                }
+                0xA1 => {
+                    self.skip_not_pressed(operation);
+                }
+                _ => {
+                    println!("Instruction failed: 0x{:0x}", operation.value);
+                    self.memory.print_rom();
+                    panic!("Unsupported value!");
                 }
             },
-            0xF => {
-                match operation.value & 0x00FF {
-                    0x07 => {
-                        self.load_delay(operation);
-                    },
-                    0x0A => {
-                        self.load_keypress(operation);
-                    },
-                    0x15 => {
-                        self.store_delay(operation);
-                    },
-                    0x18 => {
-                        self.store_sound(operation);
-                    },
-                    0x1E => {
-                        self.add_index(operation);
-                    },
-                    0x29 => {
-                        self.index_sprite(operation);
-                    },
-                    0x33 => {
-                        self.store_bcd(operation);
-                    }
-                    0x55 => {
-                        self.store_registers(operation);
-                    },
-                    0x64 => {
-                        self.load_registers(operation);
-                    }
-                    _ => {
-                        panic!("Unsupported value!");
-                    }
+            0xF => match operation.value & 0x00FF {
+                0x07 => {
+                    self.load_delay(operation);
+                }
+                0x0A => {
+                    self.load_keypress(operation);
+                }
+                0x15 => {
+                    self.store_delay(operation);
+                }
+                0x18 => {
+                    self.store_sound(operation);
+                }
+                0x1E => {
+                    self.add_index(operation);
+                }
+                0x29 => {
+                    self.index_sprite(operation);
+                }
+                0x33 => {
+                    self.store_bcd(operation);
+                }
+                0x55 => {
+                    self.store_registers(operation);
+                }
+                0x64 => {
+                    self.load_registers(operation);
+                }
+                _ => {
+                    println!("Instruction failed: 0x{:0x}", operation.value);
+                    self.memory.print_rom();
+                    panic!("Unsupported value!");
                 }
             },
             _ => {
+                println!("Instruction failed: 0x{:0x}", operation.value);
+                self.memory.print_rom();
                 panic!("Unsupported value!");
             }
         }
@@ -145,11 +184,13 @@ impl Chip8Computer {
     ///Returns from the subroutine
     pub fn return_subroutine(&mut self) {
         self.cpu.program_counter = self.cpu.get_top_of_stack(&self.memory);
+        self.incr_pc_flag = false;
     }
     ///*JP*:
     ///Jumps to the specified address.
     pub fn jump(&mut self, operation: &Operation) {
         self.cpu.program_counter = operation.get_address_immediate();
+        self.incr_pc_flag = false;
     }
     ///*CALL*:
     ///Calls a subroutine at the specified address
@@ -158,6 +199,7 @@ impl Chip8Computer {
         self.cpu
             .push_to_stack(self.cpu.program_counter, &mut self.memory);
         self.cpu.program_counter = operation.get_address_immediate();
+        self.incr_pc_flag = false;
     }
     ///*SE*:
     ///Skips the next instruction if the value in the specified register equals the specified value
@@ -304,6 +346,7 @@ impl Chip8Computer {
     pub fn jump_register(&mut self, operation: &Operation) {
         let jump_address = self.cpu.data_registers[0] as u16 + operation.get_address_immediate();
         self.cpu.program_counter = jump_address;
+        self.incr_pc_flag = false;
     }
     /// *RND*:
     ///Generates a random 8-bit value, ANDs it with an immediate, and stores the result in Vx.
@@ -333,7 +376,7 @@ impl Chip8Computer {
     ///Ex9E
     pub fn skip_pressed(&mut self, operation: &Operation) {
         let key_value = self.cpu.data_registers[operation.get_register() as usize];
-        if self.input.check_pressed(key_value) { 
+        if self.input.check_pressed(key_value) {
             self.cpu.program_counter += 2;
         }
     }
@@ -342,7 +385,7 @@ impl Chip8Computer {
     ///ExA1
     pub fn skip_not_pressed(&mut self, operation: &Operation) {
         let key_value = self.cpu.data_registers[operation.get_register() as usize];
-        if !self.input.check_pressed(key_value) { 
+        if !self.input.check_pressed(key_value) {
             self.cpu.program_counter += 2;
         }
     }
@@ -374,14 +417,16 @@ impl Chip8Computer {
     ///Adds I with the value in Vx and stores it in I.
     ///0xFx1E: I += Vx.
     pub fn add_index(&mut self, operation: &Operation) {
-        self.cpu.index_register += self.cpu.data_registers[operation.get_register() as usize] as u16;
+        self.cpu.index_register +=
+            self.cpu.data_registers[operation.get_register() as usize] as u16;
     }
     /// *LD F, Vx*:
-    ///Stores the address of the sprite in Vx into I. 
+    ///Stores the address of the sprite in Vx into I.
     ///Practically speaking, this just stores Vx * 5 into I
     ///0xFx29: I = Vx * 5.
     pub fn index_sprite(&mut self, operation: &Operation) {
-        self.cpu.index_register = self.cpu.data_registers[operation.get_register() as usize] as u16 * 5;
+        self.cpu.index_register =
+            self.cpu.data_registers[operation.get_register() as usize] as u16 * 5;
     }
     /// *LD B, Vx*:
     ///Stores the BCD version of I Vx in memory at address I, I+1, & I+2.
@@ -391,7 +436,7 @@ impl Chip8Computer {
         let hundreds = value / 100;
         let tens = (value / 10) % 10;
         let ones = value % 10;
-        
+
         let address = self.cpu.index_register as usize;
         self.memory.data[address] = hundreds;
         self.memory.data[address + 1] = tens;
@@ -415,5 +460,8 @@ impl Chip8Computer {
             self.cpu.data_registers[i] = value;
         }
     }
-}
 
+    pub fn load_rom(&mut self, rom_bytes: Vec<u8>) {
+        self.memory.store_rom(rom_bytes);
+    }
+}

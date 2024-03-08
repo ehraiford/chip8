@@ -16,7 +16,7 @@ impl Cpu {
             stack_pointer: 0,
             delay_timer: 0,
             sound_timer: 0,
-            program_counter: 0,
+            program_counter: 0x200,
         }
     }
 

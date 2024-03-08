@@ -51,3 +51,9 @@ impl Operation {
         Operation { value }
     }
 }
+
+impl From<u16> for Operation {
+    fn from(value: u16) -> Self {
+        Operation { value }
+    }
+}
