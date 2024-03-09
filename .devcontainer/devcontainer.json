@@ -1,0 +1,10 @@
+{
+    "name": "Chip-8 Dev Container",
+  
+    "dockerFile": "Dockerfile",
+  
+    "mounts": [
+      "source=.,target=/workspace,type=bind,consistency=cached"
+    ]
+  }
+  

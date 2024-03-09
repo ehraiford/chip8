@@ -1,21 +1,25 @@
-FROM python:3.12
+FROM ubuntu:latest
 
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+# Update package lists and install necessary dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    python3.12 \
+    python3-pip \
+    libsdl2-dev \
+    curl
+
+# Install Rust using rustup
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-RUN apt-get update && apt-get install -y \
-    libsdl2-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install VS Code server
-RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    gnupg \
-    && curl -fsSL https://code-server.dev/install.sh | sh
-
+# Set up working directory
 WORKDIR /app
 
+# Copy your code into the container
+COPY . .
 
-EXPOSE 8080
-ENTRYPOINT ["code-server", "--host", "0.0.0.0", "--port", "8080"]
+# Optionally, you can install Python dependencies
+RUN pip3 install -r requirements.txt
+
+# Set up entry point or command
+CMD ["/bin/bash"]
