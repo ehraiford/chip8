@@ -1,8 +1,3 @@
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
-
 pub struct FrameBuffer {
     pub buffer: [u32; 64],
 }
@@ -39,28 +34,31 @@ impl FrameBuffer {
     }
 }
 
+
+
+
 pub struct GUI {
-    canvas: Canvas<Window>
+   // canvas: Canvas<Window>
 }
 impl GUI {
-    pub fn new() -> Self {
-        let sdl_context = sdl2::init().unwrap();
-        let video_subsystem = sdl_context.video().unwrap();
-        let window = video_subsystem
-            .window("Chip-8 Emulator", 640, 320)
-            .position_centered()
-            .build()
-            .unwrap();
+    // pub fn new() -> Self {
+    //     let sdl_context = sdl2::init().unwrap();
+    //     let video_subsystem = sdl_context.video().unwrap();
+    //     let window = video_subsystem
+    //         .window("Chip-8 Emulator", 640, 320)
+    //         .position_centered()
+    //         .build()
+    //         .unwrap();
         
-        Self {
-            canvas: window.into_canvas().build().unwrap()
-        }
-    }
+    //     Self {
+    //         canvas: window.into_canvas().build().unwrap()
+    //     }
+    // }
 
-    pub fn present(&mut self) {
-        // Clear the screen with a black color
-        self.canvas.set_draw_color(Color::RGB(0, 0, 0));
-        self.canvas.clear();
-        self.canvas.present();
-    }
+    // pub fn present(&mut self) {
+    //     // Clear the screen with a black color
+    //     self.canvas.set_draw_color(Color::RGB(0, 0, 0));
+    //     self.canvas.clear();
+    //     self.canvas.present();
+    // }
 }
