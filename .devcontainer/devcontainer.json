@@ -9,7 +9,11 @@
       }
     },
     "mounts": [
-      "source=.,target=/workspace,type=bind,consistency=cached"
+      {
+        "source": "%cd%",
+        "target": "/workspace",
+        "type": "bind"
+      }
     ]
   }
   
