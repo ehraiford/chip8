@@ -3,7 +3,7 @@ FROM ubuntu:latest
 # Update package lists and install necessary dependencies
 RUN apt-get update && \
     apt-get install -y \
-    python3.12 \
+    python3 \
     python3-pip \
     libsdl2-dev \
     curl
