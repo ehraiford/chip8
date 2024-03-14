@@ -1,3 +1,6 @@
+
+use std::thread;
+use std::time::{SystemTime, Duration};
 use crate::cpu::Cpu;
 use crate::frame_buffer::FrameBuffer;
 use crate::input::Input;
@@ -9,6 +12,7 @@ pub struct Chip8Computer {
     pub frame_buffer: FrameBuffer,
     pub input: Input,
     incr_pc_flag: bool,
+    clock_speed_hz: u16,
 }
 
 impl Chip8Computer {
@@ -19,12 +23,30 @@ impl Chip8Computer {
             frame_buffer: FrameBuffer::new(),
             input: Input::new(),
             incr_pc_flag: true,
+            clock_speed_hz: 10
         }
+    }
+
+    pub fn execute_loop(&mut self) {
+        let pretick_time = SystemTime::now();
+
+        self.tick();
+        self.frame_buffer.print_buffer_to_terminal();
+
+        let elapsed_time = match pretick_time.elapsed() {
+            Ok(elapsed_time) => elapsed_time,
+            Err(_) => Duration::new(0, 0),
+        };
+        let sleep_time = (1.0 / self.clock_speed_hz as f64) - elapsed_time.as_secs_f64();
+        if sleep_time > 0.0 {
+            thread::sleep(Duration::from_secs_f64(sleep_time));
+        }
+
     }
 
     pub fn tick(&mut self) {
         let operation = self.memory.read_instruction(self.cpu.program_counter);
-        println!("Running instruction: 0x{:04x}.", operation);
+        // println!("Running instruction: 0x{:04x}.", operation);
         self.map_operation_to_function(&operation.into());
 
         self.cpu.sound_timer = self.cpu.sound_timer.saturating_sub(0);
@@ -35,6 +57,8 @@ impl Chip8Computer {
         } else {
             self.incr_pc_flag = true;
         }
+
+        self.frame_buffer.print_buffer_to_terminal();
     }
 
     pub fn map_operation_to_function(&mut self, operation: &Operation) {
@@ -243,7 +267,10 @@ impl Chip8Computer {
     ///Adds the given value to the specified register
     ///0x7xkk Vx = Vx + kk.
     pub fn add_immediate(&mut self, operation: &Operation) {
-        self.cpu.data_registers[operation.get_register() as usize] += operation.get_immediate();
+        let immediate = operation.get_immediate();
+        let register_value = self.cpu.data_registers[operation.get_register() as usize];
+        let result = register_value.overflowing_add(immediate).0;
+        self.cpu.data_registers[operation.get_register() as usize] = result;
     }
     /// *LD*:
     ///Moves the value within the second specified register into the first.

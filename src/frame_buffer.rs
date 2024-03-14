@@ -1,28 +1,45 @@
+use std::process::Command;
+
 pub struct FrameBuffer {
-    pub buffer: [u32; 64],
+    pub buffer: [u64; 32],
+    clear_command: String,
 }
 
 impl FrameBuffer {
     pub fn new() -> Self {
-        FrameBuffer { buffer: [0; 64] }
+        let clear_command = match cfg!(windows) {
+            true => "cls".to_string(),
+            false => "clear".to_string(),
+        };
+
+        FrameBuffer { 
+            buffer: [0; 32],
+            clear_command,
+        }
     }
 
-    pub fn get_frame_buffer(&self) -> [u32; 64] {
+    pub fn get_frame_buffer(&self) -> [u64; 32] {
         self.buffer
     }
 
     ///XORs the bytes onto screen starting at the the given coordinates.
     ///Returns whether or not any bits are erased because of this.
     pub fn draw_sprite(&mut self, start_x: u8, start_y: u8, bytes: Vec<u8>) -> bool {
-        let mut xor_line = 0;
-        for (i, byte) in bytes.into_iter().enumerate() {
-            let byte_as_32 = (byte as u32) << 24;
-            let right_shift = start_x + (i as u8 * 8);
-            xor_line |= (byte_as_32 >> (right_shift % 32)) % 32;
-        }
+        let mut result = false;
 
-        let result = (xor_line & self.buffer[start_y as usize]) == 0;
-        self.buffer[start_y as usize] ^= xor_line;
+        for (i, byte) in bytes.into_iter().enumerate() {
+            let mut byte_u64 = (byte as u64) << 56;
+            byte_u64 = byte_u64.rotate_right(start_x as u32);
+            
+            let y_position = start_y as usize + i;
+            if y_position >= 32 { break;}
+
+            if byte_u64 & self.buffer[y_position] != 0 {
+                result = true;
+            }
+
+            self.buffer[y_position] ^= byte_u64;
+        }
 
         result
     }
@@ -32,33 +49,25 @@ impl FrameBuffer {
             line = 0;
         }
     }
-}
 
+    pub fn get_buffer_as_string(&self) -> String {
+        let mut string_buffer = String::new();
+        for line in self.buffer {
+            for i in (0..64).rev() {
+                let bit = (line >> i) as u8 & 0x01;
+                if bit == 1 {
+                    string_buffer.push('\u{2588}');
+                } else {
+                    string_buffer.push(' ');
+                }
+            }
+            string_buffer.push('\n');
+        }
+        string_buffer
+    }
 
-
-
-pub struct GUI {
-   // canvas: Canvas<Window>
-}
-impl GUI {
-    // pub fn new() -> Self {
-    //     let sdl_context = sdl2::init().unwrap();
-    //     let video_subsystem = sdl_context.video().unwrap();
-    //     let window = video_subsystem
-    //         .window("Chip-8 Emulator", 640, 320)
-    //         .position_centered()
-    //         .build()
-    //         .unwrap();
-        
-    //     Self {
-    //         canvas: window.into_canvas().build().unwrap()
-    //     }
-    // }
-
-    // pub fn present(&mut self) {
-    //     // Clear the screen with a black color
-    //     self.canvas.set_draw_color(Color::RGB(0, 0, 0));
-    //     self.canvas.clear();
-    //     self.canvas.present();
-    // }
+    pub fn print_buffer_to_terminal(&self) {
+        let _ = Command::new(&self.clear_command).status();
+        println!("{}", self.get_buffer_as_string());
+    }
 }

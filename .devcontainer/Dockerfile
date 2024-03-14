@@ -5,9 +5,8 @@ RUN apt-get update && \
     apt-get install -y \
     python3 \
     python3-pip \
-    libsdl2-dev \
     git \
-    curl
+    curl \
 
 # Install Rust using rustup
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
