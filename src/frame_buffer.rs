@@ -1,8 +1,9 @@
-use std::process::Command;
+use std::{fmt::Display, process::Command, time::SystemTime};
 
 pub struct FrameBuffer {
     pub buffer: [u64; 32],
     clear_command: String,
+    last_update: SystemTime,
 }
 
 impl FrameBuffer {
@@ -12,9 +13,10 @@ impl FrameBuffer {
             false => "clear".to_string(),
         };
 
-        FrameBuffer { 
+        FrameBuffer {
             buffer: [0; 32],
             clear_command,
+            last_update: SystemTime::now(),
         }
     }
 
@@ -30,9 +32,11 @@ impl FrameBuffer {
         for (i, byte) in bytes.into_iter().enumerate() {
             let mut byte_u64 = (byte as u64) << 56;
             byte_u64 = byte_u64.rotate_right(start_x as u32);
-            
+
             let y_position = start_y as usize + i;
-            if y_position >= 32 { break;}
+            if y_position >= 32 {
+                break;
+            }
 
             if byte_u64 & self.buffer[y_position] != 0 {
                 result = true;
@@ -69,5 +73,13 @@ impl FrameBuffer {
     pub fn print_buffer_to_terminal(&self) {
         let _ = Command::new(&self.clear_command).status();
         println!("{}", self.get_buffer_as_string());
+    }
+
+    pub fn print_loop(&self) {}
+}
+
+impl Display for FrameBuffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
     }
 }

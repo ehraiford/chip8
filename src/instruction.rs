@@ -1,8 +1,8 @@
-pub struct Operation {
+pub struct Instruction {
     pub value: u16,
 }
 
-impl Operation {
+impl Instruction {
     ///Returns bits 15-12 of an operation's value.
     ///This value normally is the opcode part of an instruction.
     ///
@@ -48,12 +48,12 @@ impl Operation {
     }
 
     pub fn new(value: u16) -> Self {
-        Operation { value }
+        Instruction { value }
     }
 }
 
-impl From<u16> for Operation {
+impl From<u16> for Instruction {
     fn from(value: u16) -> Self {
-        Operation { value }
+        Instruction { value }
     }
 }

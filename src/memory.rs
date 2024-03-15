@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub struct Memory {
     pub data: [u8; 4096],
 }
@@ -40,13 +42,67 @@ impl Memory {
     }
 
     pub fn print_rom(&self) {
-        let rom: Vec<u8> = self.data[0x200..].into();
-        for (i, chunk) in rom.chunks(16).into_iter().enumerate() {
-            print!("0x{:04x}:    ", (i * 16) + 0x200);
+        let rom_view = self.view_memory_section(0x200, self.data.len());
+        println!("{rom_view}");
+    }
+
+    fn view_memory_section(&self, starting_index: usize, ending_index: usize) -> String {
+        let mut return_string: String = "".into();
+
+        let ending_index = std::cmp::min(ending_index, self.data.len()); 
+        let bytes: Vec<u8> = self.data[starting_index..ending_index].into();
+
+        for (i, chunk) in bytes.chunks(16).into_iter().enumerate() {
+            return_string.push_str(&format!("0x{:04x}:    ", (i * 16) + starting_index));
             for bytes in chunk.chunks(2) {
-                print!("0x{:02x}{:02x}  ", bytes[0], bytes[1]);
+                return_string.push_str(&format!("0x{:02x}{:02x}  ", bytes[0], bytes[1]));
             }
-            println!();
+            return_string.push('\n');
         }
+        
+        return_string
+    }
+
+    pub fn get_memory_view_string(&self) -> String {
+        self.view_memory_section(0x00, self.data.len())
+    }
+
+    pub fn get_only_interesting_memory(&self) -> String {
+        let mut return_string = "".to_string();
+        
+        let permissable_empty_bytes = 10;
+        let mut num_consecutive_zeros = 0;
+        let mut start_of_interesting_data: Option<usize> = None;
+
+        for (i, byte) in self.data.iter().enumerate() {
+            if *byte == 0x00 {
+                num_consecutive_zeros += 1;
+
+                if start_of_interesting_data.is_some() && num_consecutive_zeros == permissable_empty_bytes {
+                    let start_index = start_of_interesting_data.unwrap();
+                    let aligned_start_index = start_index - (start_index % 16);
+
+                    let last_interesting_index = i - num_consecutive_zeros;
+                    let last_index = last_interesting_index + (last_interesting_index % permissable_empty_bytes); 
+
+                    let memory_chunk_string = self.view_memory_section(aligned_start_index, last_index);
+                    return_string.push_str(&memory_chunk_string);
+                }
+            } else {
+                num_consecutive_zeros = 0;
+                if start_of_interesting_data == None {
+                    start_of_interesting_data = Some(i);
+                }
+            }
+
+        }
+
+        return_string
+    }
+}
+
+impl Display for Memory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{}", self.get_only_interesting_memory())
     }
 }

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::memory::Memory;
 
 pub struct Cpu {
@@ -41,6 +43,12 @@ impl Cpu {
         let mut stack_frame: u16 = (memory.data[stack_offset - 1] as u16) << 8;
         stack_frame |= memory.data[stack_offset] as u16;
         stack_frame
+    }
+}
+
+impl Display for Cpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
     }
 }
 
