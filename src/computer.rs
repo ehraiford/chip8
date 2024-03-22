@@ -4,14 +4,12 @@ use crate::input::Input;
 use crate::memory::Memory;
 use crate::Instruction;
 use std::fmt::Display;
-use std::thread;
-use std::time::{Duration, SystemTime};
+
 pub struct Chip8Computer {
     pub cpu: Cpu,
     pub memory: Memory,
     pub frame_buffer: FrameBuffer,
     pub input: Input,
-    incr_pc_flag: bool,
     clock_speed_hz: u16,
 }
 
@@ -22,42 +20,31 @@ impl Chip8Computer {
             memory: Memory::new(),
             frame_buffer: FrameBuffer::new(),
             input: Input::new(),
-            incr_pc_flag: true,
             clock_speed_hz: 10,
         }
     }
 
     pub fn execute_loop(&mut self) {
-        let pretick_time = SystemTime::now();
-
-        self.tick();
+        let instruction = self.tick();
         self.frame_buffer.print_buffer_to_terminal();
 
-        let elapsed_time = match pretick_time.elapsed() {
-            Ok(elapsed_time) => elapsed_time,
-            Err(_) => Duration::new(0, 0),
-        };
-        let sleep_time = (1.0 / self.clock_speed_hz as f64) - elapsed_time.as_secs_f64();
-        if sleep_time > 0.0 {
-            thread::sleep(Duration::from_secs_f64(sleep_time));
+        #[cfg(feature = "debug")]{
+            let mut debug = crate::debug::DEBUG_DATA.lock().unwrap();
+            debug.update_debug_data(instruction);
+            println!("{}", debug);
         }
     }
 
-    pub fn tick(&mut self) {
-        let operation = self.memory.read_instruction(self.cpu.program_counter);
-        // println!("Running instruction: 0x{:04x}.", operation);
-        self.map_operation_to_function(&operation.into());
+    pub fn tick(&mut self) -> Instruction {
+        let instruction = self.memory.read_instruction(self.cpu.program_counter).into();
+        self.map_operation_to_function(&instruction);
 
         self.cpu.sound_timer = self.cpu.sound_timer.saturating_sub(0);
         self.cpu.delay_timer = self.cpu.delay_timer.saturating_sub(0);
 
-        if self.incr_pc_flag {
-            self.cpu.program_counter += 2;
-        } else {
-            self.incr_pc_flag = true;
-        }
+        self.cpu.program_counter += 2;
 
-        self.frame_buffer.print_buffer_to_terminal();
+        instruction
     }
 
     pub fn map_operation_to_function(&mut self, operation: &Instruction) {
@@ -70,7 +57,7 @@ impl Chip8Computer {
                     self.return_subroutine();
                 }
                 _ => {
-                    panic!("sys addr is not implemented in this emulator.");
+                    panic!("sys addr ({:04X}) is not implemented in this emulator.", operation.value);
                 }
             },
             0x1 => {
@@ -119,7 +106,7 @@ impl Chip8Computer {
                 0x7 => {
                     self.subtract_register_not(operation);
                 }
-                0x8 => {
+                0xE => {
                     self.shift_left(operation);
                 }
                 _ => {
@@ -181,12 +168,11 @@ impl Chip8Computer {
                 0x55 => {
                     self.store_registers(operation);
                 }
-                0x64 => {
+                0x65 => {
                     self.load_registers(operation);
                 }
                 _ => {
                     println!("Instruction failed: 0x{:0x}", operation.value);
-                    self.memory.print_rom();
                     panic!("Unsupported value!");
                 }
             },
@@ -206,23 +192,22 @@ impl Chip8Computer {
     ///*RET*:
     ///Returns from the subroutine
     pub fn return_subroutine(&mut self) {
-        self.cpu.program_counter = self.cpu.get_top_of_stack(&self.memory);
-        self.incr_pc_flag = false;
-    }
+        // print!("Returning from subroutine. PC was 0x{:04x}.", self.cpu.program_counter);
+        self.cpu.program_counter = self.cpu.pop_stack(&mut self.memory);
+        // println!(" It now is {:04x}.", self.cpu.program_counter);
+    } 
     ///*JP*:
     ///Jumps to the specified address.
     pub fn jump(&mut self, operation: &Instruction) {
         self.cpu.program_counter = operation.get_address_immediate();
-        self.incr_pc_flag = false;
     }
     ///*CALL*:
     ///Calls a subroutine at the specified address
     ///0x2nnn: Puts current PC on the stack and sets PC to nnn.
     pub fn call(&mut self, operation: &Instruction) {
         self.cpu
-            .push_to_stack(self.cpu.program_counter, &mut self.memory);
+            .push_stack(self.cpu.program_counter, &mut self.memory);
         self.cpu.program_counter = operation.get_address_immediate();
-        self.incr_pc_flag = false;
     }
     ///*SE*:
     ///Skips the next instruction if the value in the specified register equals the specified value
@@ -342,7 +327,7 @@ impl Chip8Computer {
     }
     /// *SHL*:
     ///Shifts the value in a register left by one and stores the result in another. VF is set to the bit that was consumed.
-    ///0x8xy8: Vx = Vy << 1.
+    ///0x8xyE: Vx = Vy << 1.
     pub fn shift_left(&mut self, operation: &Instruction) {
         let second_register_value = operation.get_second_register() as u8;
         let first_bit = second_register_value & 0x80;
@@ -372,7 +357,6 @@ impl Chip8Computer {
     pub fn jump_register(&mut self, operation: &Instruction) {
         let jump_address = self.cpu.data_registers[0] as u16 + operation.get_address_immediate();
         self.cpu.program_counter = jump_address;
-        self.incr_pc_flag = false;
     }
     /// *RND*:
     ///Generates a random 8-bit value, ANDs it with an immediate, and stores the result in Vx.
@@ -494,12 +478,11 @@ impl Chip8Computer {
 
 impl Display for Chip8Computer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        
-            // self.cpu.display();
-            // self.memory.display();
-            // self.frame_buffer.display();
-            // print!("Increment PC Flag: {}", self.incr_pc_flag);
-            // println!("Targeted Tick Frequency: {} Hz", self.clock_speed_hz);
-            todo!();
-    }
+            let mut string = format!("{}", self.cpu);
+            string.push_str(&format!("{}", self.memory));
+            string.push_str(&format!("Targeted Tick Frequency: {} Hz", self.clock_speed_hz));
+            string.push_str(&format!("{}", self.frame_buffer));
+            
+            write!(f, "{}", string)
+        }
 }

@@ -80,6 +80,6 @@ impl FrameBuffer {
 
 impl Display for FrameBuffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        write!(f, "{}", self.get_buffer_as_string())
     }
 }

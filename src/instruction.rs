@@ -47,6 +47,7 @@ impl Instruction {
         (self.value & 0x000F) as u8
     }
 
+    // `
     pub fn new(value: u16) -> Self {
         Instruction { value }
     }
@@ -55,5 +56,11 @@ impl Instruction {
 impl From<u16> for Instruction {
     fn from(value: u16) -> Self {
         Instruction { value }
+    }
+}
+
+impl std::fmt::Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "0x{:04X}", self.value)
     }
 }

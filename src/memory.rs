@@ -86,6 +86,9 @@ impl Memory {
                     let last_index = last_interesting_index + (last_interesting_index % permissable_empty_bytes); 
 
                     let memory_chunk_string = self.view_memory_section(aligned_start_index, last_index);
+                    if !return_string.is_empty() {
+                        return_string.push_str(".....MEMORY BREAK.....\n");
+                    }
                     return_string.push_str(&memory_chunk_string);
                 }
             } else {
@@ -99,10 +102,20 @@ impl Memory {
 
         return_string
     }
+
+    pub fn get_stack(&self) -> [u16; 16] {
+        let mut stack: [u16; 16] = [0;16];
+        for (i, chunk) in self.data[0..32].chunks(2).into_iter().enumerate(){
+            stack[i] = ((chunk[0] as u16) << 8 ) | chunk[1] as u16
+        }
+        stack
+    }
 }
 
 impl Display for Memory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}", self.get_only_interesting_memory())
+        //write!(f,"{}", self.get_memory_view_string())
+
     }
 }
