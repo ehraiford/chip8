@@ -323,10 +323,12 @@ impl Chip8Computer {
     ///Shifts the value in a register right by one and stores the result. VF is set to the bit that was consumed.
     ///0x8xy6: Vx = Vx >> 1.
     pub fn shift_right(&mut self, operation: &Instruction) {
-        let register_value = self.cpu.data_registers[operation.get_register() as usize];;
-        let last_bit = register_value & 0x01;
-        self.cpu.data_registers[0xF] = last_bit as u8;
-        self.cpu.data_registers[operation.get_register() as usize] = register_value >> 1;
+        let second_value = self.cpu.data_registers[operation.get_second_register() as usize];
+
+        self.cpu.data_registers[operation.get_register() as usize] = second_value;
+        let last_bit = self.cpu.data_registers[operation.get_register() as usize] & 0x01;
+        self.cpu.data_registers[operation.get_register() as usize] >>= 1;
+        self.cpu.data_registers[0xF] = (last_bit != 0) as u8;
     }
     /// *SUBN*:
     ///Subtracts the content of register 1 from register 2 and stores the result in the first.
@@ -342,10 +344,12 @@ impl Chip8Computer {
     ///Shifts the value in a register left by one and stores the result. VF is set to the bit that was consumed.
     ///0x8xyE: Vx = Vx << 1.
     pub fn shift_left(&mut self, operation: &Instruction) {
-        let register_value = self.cpu.data_registers[operation.get_register() as usize];
-        let first_bit = register_value & 0x80;
-        self.cpu.data_registers[0xF] = first_bit as u8;
-        self.cpu.data_registers[operation.get_register() as usize] = register_value << 1;
+        let second_value = self.cpu.data_registers[operation.get_second_register() as usize];
+
+        self.cpu.data_registers[operation.get_register() as usize] = second_value;
+        let first_bit = self.cpu.data_registers[operation.get_register() as usize] & 0x80;
+        self.cpu.data_registers[operation.get_register() as usize]  <<= 1;
+        self.cpu.data_registers[0xF] = (first_bit != 0) as u8;
     }
     /// *SNE*:
     ///Skips the next instruction if the values in the two given registers are not equal
