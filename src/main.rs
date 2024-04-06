@@ -12,23 +12,22 @@ use std::io::Read;
 use std::path::PathBuf;
 extern crate lazy_static;
 
-
 fn main() {
-    let roms: [String; 5] = [
+    let roms: [String; 6] = [
         "roms/1-chip8-logo.ch8".to_string(),
         "roms/2-ibm-logo.ch8".to_string(),
         "roms/3-corax+.ch8".to_string(),
         "roms/4-flags.ch8".to_string(),
         "roms/c8_test.c8".to_string(),
-     ];
-    let bytes = read_bytes_from_file(PathBuf::from(
-        roms[3].clone()
-    ));
+        "roms/test_opcode.ch8".to_string(),
+    ];
+    let bytes = read_bytes_from_file(PathBuf::from(roms[2].clone()));
     let mut emulator_instance = Chip8Computer::new();
     emulator_instance.load_rom(bytes);
 
-    for _ in 0..10000 {       
+    for _ in 0..10000 {
         emulator_instance.execute_loop();
+        // std::thread::sleep(std::time::Duration::from_secs_f32(0.5));
     }
 }
 

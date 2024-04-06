@@ -49,8 +49,8 @@ impl FrameBuffer {
     }
 
     pub fn clear(&mut self) {
-        for mut line in self.buffer {
-            line = 0;
+        for i in 0..self.buffer.len() {
+            self.buffer[i] = 0
         }
     }
 

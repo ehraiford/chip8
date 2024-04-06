@@ -47,7 +47,6 @@ impl Instruction {
         (self.value & 0x000F) as u8
     }
 
-    // `
     pub fn new(value: u16) -> Self {
         Instruction { value }
     }

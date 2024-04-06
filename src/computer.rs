@@ -28,21 +28,26 @@ impl Chip8Computer {
         let instruction = self.tick();
         self.frame_buffer.print_buffer_to_terminal();
 
-        #[cfg(feature = "debug")]{
+        #[cfg(feature = "debug")]
+        {
             let mut debug = crate::debug::DEBUG_DATA.lock().unwrap();
             debug.update_debug_data(instruction);
+            println!("{}", self);
             println!("{}", debug);
         }
     }
 
     pub fn tick(&mut self) -> Instruction {
-        let instruction = self.memory.read_instruction(self.cpu.program_counter).into();
+        let instruction = self
+            .memory
+            .read_instruction(self.cpu.program_counter)
+            .into();
+        self.cpu.program_counter += 2;
         self.map_operation_to_function(&instruction);
 
         self.cpu.sound_timer = self.cpu.sound_timer.saturating_sub(0);
         self.cpu.delay_timer = self.cpu.delay_timer.saturating_sub(0);
 
-        self.cpu.program_counter += 2;
 
         instruction
     }
@@ -57,7 +62,10 @@ impl Chip8Computer {
                     self.return_subroutine();
                 }
                 _ => {
-                    panic!("sys addr ({:04X}) is not implemented in this emulator.", operation.value);
+                    panic!(
+                        "sys addr (0x{:04X}) is not implemented in this emulator.",
+                        operation.value
+                    );
                 }
             },
             0x1 => {
@@ -115,9 +123,16 @@ impl Chip8Computer {
                     panic!("Unsupported value!");
                 }
             },
-            0x9 => {
-                self.skip_not_equal_register(operation);
-            }
+            0x9 => match operation.value & 0x000F {
+                0x00 => {
+                    self.skip_not_equal_register(operation);
+                }
+                _ => {
+                    println!("Instruction failed: 0x{:0x}", operation.value);
+                    self.memory.print_rom();
+                    panic!("Unsupported value!");
+                }
+            },
             0xA => {
                 self.load_address(operation);
             }
@@ -192,10 +207,8 @@ impl Chip8Computer {
     ///*RET*:
     ///Returns from the subroutine
     pub fn return_subroutine(&mut self) {
-        // print!("Returning from subroutine. PC was 0x{:04x}.", self.cpu.program_counter);
         self.cpu.program_counter = self.cpu.pop_stack(&mut self.memory);
-        // println!(" It now is {:04x}.", self.cpu.program_counter);
-    } 
+    }
     ///*JP*:
     ///Jumps to the specified address.
     pub fn jump(&mut self, operation: &Instruction) {
@@ -231,7 +244,7 @@ impl Chip8Computer {
         }
     }
     ///*SE*:
-    ///Skips the next instruction if the values in the two specified registers are not equal
+    ///Skips the next instruction if the values in the two specified registers are equal
     ///0x5xy0: Skips next instruction if Vx == Vy.
     pub fn skip_equal_register(&mut self, operation: &Instruction) {
         let register_one_value = self.cpu.data_registers[operation.get_register() as usize];
@@ -307,13 +320,13 @@ impl Chip8Computer {
         self.cpu.data_registers[0xF] = !result.1 as u8;
     }
     /// *SHR*:
-    ///Shifts the value in a register right by one and stores the result in another. VF is set to the bit that was consumed.
-    ///0x8xy6: Vx = Vy >> 1.
+    ///Shifts the value in a register right by one and stores the result. VF is set to the bit that was consumed.
+    ///0x8xy6: Vx = Vx >> 1.
     pub fn shift_right(&mut self, operation: &Instruction) {
-        let second_register_value = operation.get_second_register() as u8;
-        let last_bit = second_register_value & 0x01;
+        let register_value = self.cpu.data_registers[operation.get_register() as usize];;
+        let last_bit = register_value & 0x01;
         self.cpu.data_registers[0xF] = last_bit as u8;
-        self.cpu.data_registers[operation.get_register() as usize] = second_register_value >> 1;
+        self.cpu.data_registers[operation.get_register() as usize] = register_value >> 1;
     }
     /// *SUBN*:
     ///Subtracts the content of register 1 from register 2 and stores the result in the first.
@@ -326,13 +339,13 @@ impl Chip8Computer {
         self.cpu.data_registers[0xF] = !result.1 as u8;
     }
     /// *SHL*:
-    ///Shifts the value in a register left by one and stores the result in another. VF is set to the bit that was consumed.
-    ///0x8xyE: Vx = Vy << 1.
+    ///Shifts the value in a register left by one and stores the result. VF is set to the bit that was consumed.
+    ///0x8xyE: Vx = Vx << 1.
     pub fn shift_left(&mut self, operation: &Instruction) {
-        let second_register_value = operation.get_second_register() as u8;
-        let first_bit = second_register_value & 0x80;
+        let register_value = self.cpu.data_registers[operation.get_register() as usize];
+        let first_bit = register_value & 0x80;
         self.cpu.data_registers[0xF] = first_bit as u8;
-        self.cpu.data_registers[operation.get_register() as usize] = second_register_value << 1;
+        self.cpu.data_registers[operation.get_register() as usize] = register_value << 1;
     }
     /// *SNE*:
     ///Skips the next instruction if the values in the two given registers are not equal
@@ -349,7 +362,7 @@ impl Chip8Computer {
     ///Loads given large immediate value into I Register
     ///0xAnnn: I = nnn.
     pub fn load_address(&mut self, operation: &Instruction) {
-        self.cpu.index_register = operation.get_address_immediate()
+        self.cpu.index_register = operation.get_address_immediate();
     }
     ///*JP I*:
     ///Sets PC to nnn + V0
@@ -439,8 +452,8 @@ impl Chip8Computer {
             self.cpu.data_registers[operation.get_register() as usize] as u16 * 5;
     }
     /// *LD B, Vx*:
-    ///Stores the BCD version of I Vx in memory at address I, I+1, & I+2.
-    ///0Fx33
+    ///Stores the BCD version of Vx in memory at address I, I+1, & I+2.
+    ///0xFx33
     pub fn store_bcd(&mut self, operation: &Instruction) {
         let value = self.cpu.data_registers[operation.get_register() as usize];
         let hundreds = value / 100;
@@ -448,25 +461,25 @@ impl Chip8Computer {
         let ones = value % 10;
 
         let address = self.cpu.index_register as usize;
-        self.memory.data[address] = hundreds;
-        self.memory.data[address + 1] = tens;
-        self.memory.data[address + 2] = ones;
+        self.memory.ram[address] = hundreds;
+        self.memory.ram[address + 1] = tens;
+        self.memory.ram[address + 2] = ones;
     }
     /// *LD [I], Vx*:
     ///Stores values in V0 -> Vx registers in consecutive memory locations starting at the address in I.
     ///0xFx55
     pub fn store_registers(&mut self, operation: &Instruction) {
-        for i in 0..operation.get_register().into() {
+        for i in 0..(operation.get_register() + 1) as usize {
             let value = self.cpu.data_registers[i];
-            self.memory.data[self.cpu.index_register as usize + i] = value;
+            self.memory.ram[self.cpu.index_register as usize + i] = value;
         }
     }
     /// *LD Vx, [I]
     ///Loads values into V0 -> Vx registers from consecutive memory locations starting at the address in I.
     ///0xFx65
     pub fn load_registers(&mut self, operation: &Instruction) {
-        for i in 0..operation.get_register().into() {
-            let value = self.memory.data[self.cpu.index_register as usize + i];
+        for i in 0..(operation.get_register() + 1) as usize {
+            let value = self.memory.ram[self.cpu.index_register as usize + i];
             self.cpu.data_registers[i] = value;
         }
     }
@@ -478,11 +491,14 @@ impl Chip8Computer {
 
 impl Display for Chip8Computer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let mut string = format!("{}", self.cpu);
-            string.push_str(&format!("{}", self.memory));
-            string.push_str(&format!("Targeted Tick Frequency: {} Hz", self.clock_speed_hz));
-            string.push_str(&format!("{}", self.frame_buffer));
-            
-            write!(f, "{}", string)
-        }
+        let mut string = format!("{}", self.cpu);
+        string.push_str(&format!("{}", self.memory));
+        string.push_str(&format!(
+            "Targeted Tick Frequency: {} Hz\n",
+            self.clock_speed_hz
+        ));
+        string.push_str(&format!("{}", self.frame_buffer));
+
+        write!(f, "{}", string)
+    }
 }

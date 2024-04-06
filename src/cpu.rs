@@ -24,31 +24,17 @@ impl Cpu {
 
     ///Pushes the given value to the stack and increments the stack pointer
     pub fn push_stack(&mut self, value: u16, memory: &mut Memory) {
-        if self.stack_pointer >= 32 {
+        if self.stack_pointer >= 16 {
             panic!("Stack overflow!");
         } else {
-            let most_significant_byte = (value >> 8) as u8;
-            let least_significant_byte = (value & 0x00FF) as u8;
-            
-            memory.data[self.stack_pointer as usize] = most_significant_byte;
-            self.stack_pointer += 1;
-
-            memory.data[self.stack_pointer as usize] = least_significant_byte;
+            memory.stack[self.stack_pointer as usize] = value;
             self.stack_pointer += 1;
         }
     }
 
     pub fn pop_stack(&mut self, memory: &mut Memory) -> u16 {
-        self.stack_pointer -= 2;
-        let stack_frame = self.get_top_of_stack(memory);
-        stack_frame
-    }
-
-    fn get_top_of_stack(&self, memory: &Memory) -> u16 {
-        let most_sig_byte = memory.data[self.stack_pointer as usize];
-        let least_sig_byte = memory.data[self.stack_pointer as usize + 1];
-        
-        let stack_frame: u16 = ((most_sig_byte as u16) << 8) | least_sig_byte as u16;
+        self.stack_pointer -= 1;
+        let stack_frame = memory.stack[self.stack_pointer as usize];
         stack_frame
     }
 }
@@ -60,8 +46,13 @@ impl Display for Cpu {
         string.push_str(&format!("STACK POINTER: {}\n", self.stack_pointer));
         for (i, chunk) in self.data_registers.chunks(4).into_iter().enumerate() {
             for (j, register) in chunk.iter().enumerate() {
-                let register_start = format!("V{}:", (i*4 + j)); 
-                string.push_str(&format!("[{:<width$} {:03}]    ", register_start, register, width=4));
+                let register_start = format!("V{}:", (i * 4 + j));
+                string.push_str(&format!(
+                    "[{:<width$} {:03}]    ",
+                    register_start,
+                    register,
+                    width = 4
+                ));
             }
             string.push('\n');
         }
