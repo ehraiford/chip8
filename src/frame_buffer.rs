@@ -1,8 +1,11 @@
-use std::{fmt::Display, process::Command, time::SystemTime};
+use std::{fmt::Display, process::Command, sync::mpsc, time::SystemTime};
+
+use crate::display::{ProgramDisplay, ToRGB};
 
 pub struct FrameBuffer {
     pub buffer: [u64; 32],
     clear_command: String,
+    redraw_sender: mpsc::Sender<Vec<[u8; 4]>>,
     last_update: SystemTime,
 }
 
@@ -16,8 +19,14 @@ impl FrameBuffer {
         FrameBuffer {
             buffer: [0; 32],
             clear_command,
+            redraw_sender: FrameBuffer::initialize(32, 64)
+                .expect("Failed to create Display thread."),
             last_update: SystemTime::now(),
         }
+    }
+
+    pub fn request_redraw(&self) {
+        self.redraw_sender.send(self.to_drawable_vec()).unwrap();
     }
 
     pub fn get_frame_buffer(&self) -> [u64; 32] {
@@ -45,6 +54,8 @@ impl FrameBuffer {
             self.buffer[y_position] ^= byte_u64;
         }
 
+        self.request_redraw();
+
         result
     }
 
@@ -52,6 +63,7 @@ impl FrameBuffer {
         for i in 0..self.buffer.len() {
             self.buffer[i] = 0
         }
+        self.request_redraw()
     }
 
     pub fn get_buffer_as_string(&self) -> String {
@@ -74,12 +86,29 @@ impl FrameBuffer {
         let _ = Command::new(&self.clear_command).status();
         println!("{}", self.get_buffer_as_string());
     }
-
-    pub fn print_loop(&self) {}
 }
 
 impl Display for FrameBuffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.get_buffer_as_string())
+    }
+}
+
+impl crate::display::ProgramDisplay for FrameBuffer {
+    fn get_window_name() -> String {
+        "Chip-8 Emulator".to_string()
+    }
+
+    fn to_drawable_vec(&self) -> Vec<[u8; 4]> {
+        let mut drawable_vec = Vec::new();
+        for line in self.buffer {
+            for i in (0..64).rev() {
+                let value: u8 = (line >> i) as u8 & 0x01;
+                if line >> i & 0x01 == 1 {
+                    drawable_vec.push(value.to_rgb())
+                }
+            }
+        }
+        drawable_vec
     }
 }

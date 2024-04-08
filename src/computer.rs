@@ -26,7 +26,6 @@ impl Chip8Computer {
 
     pub fn execute_loop(&mut self) {
         let instruction = self.tick();
-        self.frame_buffer.print_buffer_to_terminal();
 
         #[cfg(feature = "debug")]
         {
@@ -47,7 +46,6 @@ impl Chip8Computer {
 
         self.cpu.sound_timer = self.cpu.sound_timer.saturating_sub(0);
         self.cpu.delay_timer = self.cpu.delay_timer.saturating_sub(0);
-
 
         instruction
     }
@@ -348,7 +346,7 @@ impl Chip8Computer {
 
         self.cpu.data_registers[operation.get_register() as usize] = second_value;
         let first_bit = self.cpu.data_registers[operation.get_register() as usize] & 0x80;
-        self.cpu.data_registers[operation.get_register() as usize]  <<= 1;
+        self.cpu.data_registers[operation.get_register() as usize] <<= 1;
         self.cpu.data_registers[0xF] = (first_bit != 0) as u8;
     }
     /// *SNE*:
