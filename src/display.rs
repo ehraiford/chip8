@@ -14,8 +14,6 @@ pub trait ProgramDisplay {
 
     fn initialize(width: usize, height: usize) -> Result<mpsc::Sender<Vec<[u8; 4]>>, Error> {
         let (sender_to_event_loop, receiver_from_main) = std::sync::mpsc::channel();
-
-        thread::spawn(move || {
             let event_loop = EventLoop::new();
             let window = WindowBuilder::new()
                 .with_title(Self::get_window_name())
@@ -63,8 +61,11 @@ pub trait ProgramDisplay {
                 }
             });
         
-        });
         Ok(sender_to_event_loop)
+    }
+
+    fn run() {
+        
     }
 
     /// Takes in a width and height for a frame_buffer and generates a Vec<impl ToRGB> for a sample image.

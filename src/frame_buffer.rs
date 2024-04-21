@@ -4,9 +4,9 @@ use crate::display::{ProgramDisplay, ToRGB};
 
 pub struct FrameBuffer {
     pub buffer: [u64; 32],
-    clear_command: String,
-    redraw_sender: mpsc::Sender<Vec<[u8; 4]>>,
-    last_update: SystemTime,
+    _clear_command: String,
+    // redraw_sender: mpsc::Sender<Vec<[u8; 4]>>,
+    _last_update: SystemTime,
 }
 
 impl FrameBuffer {
@@ -18,15 +18,15 @@ impl FrameBuffer {
 
         FrameBuffer {
             buffer: [0; 32],
-            clear_command,
-            redraw_sender: FrameBuffer::initialize(32, 64)
-                .expect("Failed to create Display thread."),
-            last_update: SystemTime::now(),
+            _clear_command: clear_command,
+            // redraw_sender: FrameBuffer::initialize(32, 64)
+            //     .expect("Failed to create Display thread."),
+            _last_update: SystemTime::now(),
         }
     }
 
     pub fn request_redraw(&self) {
-        self.redraw_sender.send(self.to_drawable_vec()).unwrap();
+        // let _ = self.redraw_sender.send(self.to_drawable_vec());
     }
 
     pub fn get_frame_buffer(&self) -> [u64; 32] {
@@ -83,7 +83,7 @@ impl FrameBuffer {
     }
 
     pub fn print_buffer_to_terminal(&self) {
-        let _ = Command::new(&self.clear_command).status();
+        let _ = Command::new(&self._clear_command).status();
         println!("{}", self.get_buffer_as_string());
     }
 }
