@@ -11,15 +11,17 @@ pub struct Chip8Computer {
     pub memory: Memory,
     pub frame_buffer: FrameBuffer,
     pub input: Input,
+    response_sender: Sender<EmulatorResponse>,
     clock_speed_hz: u16,
 }
 
 impl Chip8Computer {
-    pub fn new() -> Self {
+    pub fn new(response_sender: Sender<EmulatorResponse>) -> Self {
         Chip8Computer {
             cpu: Cpu::new(),
             memory: Memory::new(),
-            frame_buffer: FrameBuffer::new(),
+            frame_buffer: FrameBuffer::new(response_sender),
+            response_sender,
             input: Input::new(),
             clock_speed_hz: 10,
         }
@@ -508,7 +510,7 @@ impl Display for Chip8Computer {
 
 impl ThreadedEmulator for Chip8Computer {
     fn new(sender_from_computer: Sender<EmulatorResponse>) -> Self {
-        todo!()
+       Chip8Computer::new(sender_from_computer)
     }
 
     fn match_received_command(&self, command: EmulatorCommand) -> std::result::Result<(), String> {
@@ -522,47 +524,3 @@ impl ThreadedEmulator for Chip8Computer {
     }
 }
 
-enum EmulatorCommand {
-    Go,
-    Step(u32),
-    GetMemory,
-    GetRegisters,
-    Pause,
-}
-
-enum EmulatorResponse {
-    FrameBuffer(Vec<[u8;4]>)
-}
-
-trait ThreadedEmulator {
-
-    /// Creates a new instance of the associated type Computer. 
-    /// 
-    /// The Sender should be hooked up into wherever graphics updates will come from 
-    /// (e.g. frame buffer updates) 
-    fn new(sender_from_computer: Sender<EmulatorResponse>) -> Self;
-
-    /// Performs the action corresponding to the received EmulatorCommand
-    fn match_received_command(&self, command: EmulatorCommand) -> std::result::Result<(), String>;
-
-    ///
-    fn initialize() -> (Sender<EmulatorCommand>, Receiver<EmulatorResponse>)
-    where Self: Sized {
-        let (sender_to_computer, receiver_to_computer) = channel::<EmulatorCommand>();
-        let (sender_from_computer, receiver_from_computer) = channel::<EmulatorResponse>();
-
-        std::thread::spawn(move || {
-            let computer = Self::new(sender_from_computer);
-
-            loop {
-                if let Ok(command) = receiver_to_computer.try_recv() {
-                    if let Err(e) = computer.match_received_command(command){
-                        eprintln!("{e}");
-                    };
-                }
-            }
-        });
-       
-       (sender_to_computer, receiver_from_computer)
-    }
-}

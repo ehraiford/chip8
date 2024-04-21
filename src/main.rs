@@ -6,7 +6,7 @@ mod frame_buffer;
 mod input;
 mod instruction;
 mod memory;
-use computer::Chip8Computer;
+use computer::{Chip8Computer, ThreadedEmulator};
 use display::ProgramDisplay;
 use instruction::Instruction;
 use std::fs::File;
@@ -26,15 +26,14 @@ fn main() {
         "roms/test_opcode.ch8".to_string(),
     ];
     let bytes = read_bytes_from_file(PathBuf::from(roms[3].clone()));
-    let mut emulator_instance = Chip8Computer::new();
+    let (sender_to_emulator, receiver_from_emulator) = Chip8Computer::initialize();
     emulator_instance.load_rom(bytes);
 
-    std::thread::spawn(move || {
+   
         for _ in 0..1000 {
             emulator_instance.execute_loop();
             // std::thread::sleep(std::time::Duration::from_secs_f32(0.5));
         }
-    });
 }
 
 fn read_bytes_from_file(file_path: PathBuf) -> Vec<u8> {

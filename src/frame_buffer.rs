@@ -1,16 +1,16 @@
-use std::{fmt::Display, process::Command, sync::mpsc, time::SystemTime};
+use std::{fmt::Display, process::Command, sync::mpsc::Sender, time::SystemTime};
 
-use crate::display::{ProgramDisplay, ToRGB};
+use crate::{computer::EmulatorResponse, display::{ProgramDisplay, ToRGB, ToRGBVec}};
 
 pub struct FrameBuffer {
     pub buffer: [u64; 32],
     _clear_command: String,
-    // redraw_sender: mpsc::Sender<Vec<[u8; 4]>>,
+    redraw_sender: Sender<EmulatorResponse>,
     _last_update: SystemTime,
 }
 
 impl FrameBuffer {
-    pub fn new() -> Self {
+    pub fn new(redraw_sender: Sender<EmulatorResponse>) -> Self {
         let clear_command = match cfg!(windows) {
             true => "cls".to_string(),
             false => "clear".to_string(),
@@ -19,14 +19,13 @@ impl FrameBuffer {
         FrameBuffer {
             buffer: [0; 32],
             _clear_command: clear_command,
-            // redraw_sender: FrameBuffer::initialize(32, 64)
-            //     .expect("Failed to create Display thread."),
+            redraw_sender: redraw_sender,
             _last_update: SystemTime::now(),
         }
     }
 
     pub fn request_redraw(&self) {
-        // let _ = self.redraw_sender.send(self.to_drawable_vec());
+        let _ = self.redraw_sender.send(EmulatorResponse::FrameBuffer(self.to_rgb_vec()));
     }
 
     pub fn get_frame_buffer(&self) -> [u64; 32] {
@@ -66,6 +65,17 @@ impl FrameBuffer {
         self.request_redraw()
     }
 
+    pub fn get_buffer_as_drawable_vec(&self) -> Vec<[u8; 4]> {
+        let mut buffer = Vec::new();
+        for line in self.buffer {
+            for i in (0..64).rev() {
+                let bit = (line >> i) as u8 & 0x01;
+                buffer.push(bit.to_rgb());                
+            }
+        }
+        buffer
+    }
+
     pub fn get_buffer_as_string(&self) -> String {
         let mut string_buffer = String::new();
         for line in self.buffer {
@@ -94,21 +104,8 @@ impl Display for FrameBuffer {
     }
 }
 
-impl crate::display::ProgramDisplay for FrameBuffer {
-    fn get_window_name() -> String {
-        "Chip-8 Emulator".to_string()
-    }
-
-    fn to_drawable_vec(&self) -> Vec<[u8; 4]> {
-        let mut drawable_vec = Vec::new();
-        for line in self.buffer {
-            for i in (0..64).rev() {
-                let value: u8 = (line >> i) as u8 & 0x01;
-                if line >> i & 0x01 == 1 {
-                    drawable_vec.push(value.to_rgb())
-                }
-            }
-        }
-        drawable_vec
+impl ToRGBVec for FrameBuffer {
+    fn to_rgb_vec(&self) -> Vec<[u8; 4]> {
+        self.get_buffer_as_drawable_vec()
     }
 }
